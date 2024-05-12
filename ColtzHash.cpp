@@ -5,7 +5,7 @@
 std::string coltz256Hash(std::string input) {
 
     //Stage 1: Input Formatting
-    //Break input up into 32 sections that can each be interepreted as 8-bit integers.
+    //Break input up into 32 sections that can each be interpreted as 8-bit integers.
     //Integer overflow is intentional, common with hashing functions
     size_t totalLength = input.length();
 
@@ -13,24 +13,16 @@ std::string coltz256Hash(std::string input) {
         input.append(input);
         totalLength = input.length();
     }
-    size_t sectionLength = totalLength / 32;
-    size_t partialLength = totalLength % 32;
 
     std::vector<uint64_t> sectionVal = std::vector<uint64_t>(32);
-    int counter = 0;
     int curr_ind = 0;
     for (size_t i = 0; i < input.length(); i++){
-        if (counter < sectionLength){
+        if (curr_ind < 32){
             sectionVal[curr_ind] += input[i];
-            counter++;
-        }
-        else if (counter == sectionLength){
-            if (partialLength > 0){
-                sectionVal[curr_ind] += input[i];
-                partialLength--;
-            }
             curr_ind++;
-            counter = 0;
+        }
+        else{
+            curr_ind = 0;
         }
     }
 
