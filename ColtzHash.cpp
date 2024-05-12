@@ -52,11 +52,14 @@ uint8_t runCollatz(uint64_t value){
     while (value > 1){
       if (value % 2 == 0){
           value = value/2;
+          hash++;
       }
       else{
           value = value * 3 + 1;
+          hash++;
+          hash++;
       }
-      hash++;
+
     }
 
     return hash;
