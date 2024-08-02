@@ -7,6 +7,6 @@
 
 std::string coltz256Hash(std::string input);
 
-uint8_t runCollatz(uint64_t value);
+void runCollatz(uint64_t value);
 
 #endif //COLTZ256_HASH_COLTZHASH_H

@@ -1,6 +1,16 @@
 
 #include <iomanip>
+#include <boost/thread.hpp>
 #include "ColtzHash.h"
+
+std::vector<uint8_t> SECTIONHASH = std::vector<uint8_t>(32);
+boost::mutex* SHLOCK = new boost::mutex();
+boost::mutex* COMPLETIONLOCK = new boost::mutex();
+boost::mutex* CREATELOCK = new boost::mutex();
+int threadsComplete = 0;
+int threadNum = 0;
+boost::condition_variable* CVCREATE = new boost::condition_variable();
+boost::condition_variable* CVCOMPLETE = new boost::condition_variable();
 
 std::string coltz256Hash(std::string input) {
 
@@ -28,26 +38,43 @@ std::string coltz256Hash(std::string input) {
 
     //Stage 2: Computing
     //We have summed the characters of each of the 32 substrings of the input, now we hash
-
-    std::vector<uint8_t> sectionHash = std::vector<uint8_t>(32);
+    boost::unique_lock crl(*CREATELOCK);
     for (int h = 0; h < 32; h++){
-        sectionHash[h] = runCollatz(sectionVal[h]);
+        int oldthread = 0;
+        boost::thread t(runCollatz, sectionVal[h]);
+        t.detach();
+        do{
+            CVCREATE->wait(crl);
+        } while (oldthread == threadNum);
+
     }
+    crl.unlock();
+
+    //Stage 2.5: Await completion of operations by other threads
+    boost::unique_lock cl(*COMPLETIONLOCK);
+    while(threadsComplete != 32){
+        CVCOMPLETE->wait(cl);
+    }
+    cl.unlock();
 
     //Stage 3: Output Formatting
     //Now that we have the values, we will combine them into a single number and represent it in hex format
     // before returning a string containing it.
     std::stringstream output;
     for (int h = 0; h < 32; h++){
-        output << std::setw(2) << std::setfill('0') << std::hex << int(sectionHash[h]);
+        output << std::setw(2) << std::setfill('0') << std::hex << int(SECTIONHASH[h]);
     }
-
     return output.str();
 
 }
 
-uint8_t runCollatz(uint64_t value){
+void runCollatz(uint64_t value){
     uint8_t hash = 0;
+    CREATELOCK->lock();
+    int threadn = threadNum;
+    threadNum++;
+    CVCREATE->notify_all();
+    CREATELOCK->unlock();
 
     while (value > 1){
       if (value % 2 == 0){
@@ -61,7 +88,13 @@ uint8_t runCollatz(uint64_t value){
       }
 
     }
-
-    return hash;
-
+    SHLOCK->lock();
+    SECTIONHASH[threadn] = hash;
+    SHLOCK->unlock();
+    COMPLETIONLOCK->lock();
+    threadsComplete += 1;
+    if (threadsComplete == 32){
+        CVCOMPLETE->notify_all();
+    }
+    COMPLETIONLOCK->unlock();
 }
